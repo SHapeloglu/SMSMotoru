@@ -1,0 +1,6 @@
+<?php
+return [
+ 'db'=>['host'=>'127.0.0.1','name'=>'sms_panel','user'=>'sms_user','pass'=>'CHANGE_ME','charset'=>'utf8mb4'],
+ 'app'=>['name'=>'Toplu SMS Paneli V2','base_url'=>'','timezone'=>'Europe/Istanbul'],
+ 'security'=>['encryption_key'=>'CHANGE_THIS_TO_A_LONG_RANDOM_SECRET'],
+];
