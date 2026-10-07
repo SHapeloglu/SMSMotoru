@@ -8,14 +8,14 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
   try{
    $ext=strtolower(pathinfo($_FILES['file']['name'],PATHINFO_EXTENSION));
    $rows=$ext==='xlsx'?xlsx_rows($_FILES['file']['tmp_name']):csv_rows($_FILES['file']['tmp_name']);
-   $res=contacts_from_rows($rows,trim($_POST['group_name']??''));
+   $res=contacts_from_rows($rows,trim($_POST['group_name']??''),isset($_POST['mobile_only']));
    if($res['error']){$msg='Hata: '.$res['error'];}
    else{
     $stmt=$pdo->prepare('INSERT INTO contacts(first_name,last_name,phone,group_name,company,source) VALUES(?,?,?,?,?,?)
       ON DUPLICATE KEY UPDATE first_name=COALESCE(VALUES(first_name),first_name),last_name=COALESCE(VALUES(last_name),last_name),
       company=COALESCE(VALUES(company),company),source=COALESCE(VALUES(source),source)');
     foreach($res['contacts'] as $c)$stmt->execute([$c['first_name'],$c['last_name'],$c['phone'],$c['group_name'],$c['company'],$c['source']]);
-    $msg=count($res['contacts']).' kişi içe aktarıldı.'.($res['skipped']?' Geçersiz '.$res['skipped'].' numara atlandı.':'');
+    $msg=count($res['contacts']).' kişi içe aktarıldı.'.($res['skipped_nonmobile']?' Cep telefonu olmayan '.$res['skipped_nonmobile'].' numara (sabit hat / yurt dışı) atlandı.':'').($res['skipped']?' Geçersiz '.$res['skipped'].' numara atlandı.':'');
    }
   }catch(Throwable $e){$msg='Hata: '.$e->getMessage();}
  }
@@ -57,6 +57,7 @@ Data Hunter'ın <b>Firma CSV</b> ve normal <b>CSV</b> dosyaları doğrudan yükl
 <form method="post" enctype="multipart/form-data"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="import">
 <p><input type="file" name="file" accept=".xlsx,.csv" required></p>
 <p><input name="group_name" placeholder="Grup adı (dosyada grup sütunu yoksa)" style="width:60%"></p>
+<p><label><input type="checkbox" name="mobile_only" checked> Yalnız cep telefonlarını al (05…) — sabit hatlar (0212, 0216, 0850…) ve yurt dışı numaralar alınmaz</label></p>
 <button>İçe Aktar</button></form></div>
 
 <div class="box"><h3>Kayıtlar</h3><p>Toplam <?=$totals['c']?> kayıt, <?=$totals['u']?> farklı numara.</p>

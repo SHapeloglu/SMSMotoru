@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 function e(?string $v):string{return htmlspecialchars($v??'',ENT_QUOTES,'UTF-8');}
 
+// TR numara türü (normalize_phone çıktısı üzerinde): cep 905…, sabit hat / 444 / 850 vb. 90[2-48]…
+function is_tr_mobile(string $p):bool{return str_starts_with($p,'905');}
+function is_tr_landline(string $p):bool{return (bool)preg_match('/^90[2-48]/',$p);}
+
 // Telefonu "905321234567" biçimine çevirir; telefon değilse '' döner.
 function normalize_phone(string $p):string{
  $p=preg_replace('/\D+/','',$p);
@@ -50,9 +54,10 @@ function clean_cell($v):string{
 //  - Genel:                 telefon, ad, soyad, grup, firma
 //  - Data Hunter Firma CSV: Firma;Telefon;E-Posta;...;Sayfa  (bir hücrede "a | b" birden çok numara)
 //  - Data Hunter CSV:       Email;Tip;Kaynak;Tarih;Firma;Sayfa (yalnız Tip=Telefon satırları)
-// Dönüş: ['contacts'=>[[phone,first_name,last_name,group_name,company,source],...], 'skipped'=>int, 'error'=>?string]
-function contacts_from_rows(array $rows,string $defaultGroup=''):array{
- if(!$rows)return ['contacts'=>[],'skipped'=>0,'error'=>'Dosya boş.'];
+// $mobileOnly: yalnız TR cep numaraları (05…) alınır; sabit hatlar ve yurt dışı numaralar 'skipped_nonmobile' sayılır.
+// Dönüş: ['contacts'=>[[phone,first_name,last_name,group_name,company,source],...], 'skipped'=>int, 'skipped_nonmobile'=>int, 'error'=>?string]
+function contacts_from_rows(array $rows,string $defaultGroup='',bool $mobileOnly=false):array{
+ if(!$rows)return ['contacts'=>[],'skipped'=>0,'skipped_nonmobile'=>0,'error'=>'Dosya boş.'];
  $header=array_map(fn($x)=>mb_strtolower(clean_cell($x),'UTF-8'),$rows[0]);
  $col=fn(string $name)=>($i=array_search($name,$header,true))===false?null:$i;
  $cell=fn(array $row,?int $i)=>$i===null?'':clean_cell($row[$i]??'');
@@ -60,11 +65,11 @@ function contacts_from_rows(array $rows,string $defaultGroup=''):array{
  $iTip=$col('tip');$iEmail=$col('email');
  $dhValueCsv=$iTip!==null && $iEmail!==null && $col('telefon')===null;
  $iPhone=$dhValueCsv?$iEmail:$col('telefon');
- if($iPhone===null)return ['contacts'=>[],'skipped'=>0,'error'=>'"telefon" başlıklı sütun bulunamadı. İlk satır başlık olmalı (ör. telefon, ad, soyad, grup, firma).'];
+ if($iPhone===null)return ['contacts'=>[],'skipped'=>0,'skipped_nonmobile'=>0,'error'=>'"telefon" başlıklı sütun bulunamadı. İlk satır başlık olmalı (ör. telefon, ad, soyad, grup, firma).'];
  $iAd=$col('ad');$iSoyad=$col('soyad');$iGrup=$col('grup');$iFirma=$col('firma');
  $iSource=$col('sayfa')??$col('kaynak');
 
- $out=[];$seen=[];$skipped=0;
+ $out=[];$seen=[];$skipped=0;$nonMobile=0;
  for($r=1;$r<count($rows);$r++){
   $row=$rows[$r];
   if($dhValueCsv && mb_strtolower($cell($row,$iTip),'UTF-8')!=='telefon')continue;
@@ -73,6 +78,7 @@ function contacts_from_rows(array $rows,string $defaultGroup=''):array{
    if($raw==='')continue;
    $phone=normalize_phone($raw);
    if($phone===''){$skipped++;continue;}
+   if($mobileOnly && !is_tr_mobile($phone)){$nonMobile++;continue;}
    $key=$phone.'|'.$group;
    if(isset($seen[$key]))continue;
    $seen[$key]=true;
@@ -80,7 +86,7 @@ function contacts_from_rows(array $rows,string $defaultGroup=''):array{
            'group_name'=>$group?:null,'company'=>$cell($row,$iFirma)?:null,'source'=>$cell($row,$iSource)?:null];
   }
  }
- return ['contacts'=>$out,'skipped'=>$skipped,'error'=>null];
+ return ['contacts'=>$out,'skipped'=>$skipped,'skipped_nonmobile'=>$nonMobile,'error'=>null];
 }
 
 // Serbest metinden numara listesi (ret listesi için): satır, virgül veya noktalı virgülle ayrılmış

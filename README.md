@@ -48,6 +48,9 @@ Gereken: PHP 8.1+ (cURL, PDO_MySQL, OpenSSL, Zip, SimpleXML, mbstring) ve MySQL/
 ## Kişiler ve ret listesi
 - İçe aktarma: `.xlsx` / `.csv`, ayraç (`;` `,`) otomatik; başlıklar `telefon, ad, soyad, grup, firma`.
   Data Hunter'ın **Firma CSV** ve normal **CSV** dosyaları doğrudan yüklenebilir (firma adı ve kaynak sayfa saklanır). Geçersiz numaralar atlanır ve sayısı gösterilir.
+- **"Yalnız cep telefonlarını al (05…)"** (içe aktarmada varsayılan açık): sabit hatlar (0212, 0216, 0850, 444…) ve yurt dışı numaralar alınmaz; atlanan sayısı gösterilir.
+  Data Hunter'da bir hücrede birden çok numara varsa (ör. sabit hat | cep) yalnız cep olan alınır.
+- SMS gönderiminde TR sabit hatlar her durumda atlanır (SMS sabit hatta ulaşmaz). WhatsApp'ta bu süzgeç uygulanmaz.
 - Mesajda `{AD}`, `{SOYAD}`, `{FIRMA}`, `{TELEFON}` kullanılabilir.
 - **Ret listesi** (Kişiler sayfası): eklenen numaralara bilgilendirme dahil hiçbir SMS gönderilmez; kuyruktaki mesajlarda da gönderim anında kontrol edilir.
 - Ticari türde yalnız `consent_status=granted` kişiler kuyruğa alınır.
