@@ -25,6 +25,17 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
   foreach($phones as $p)$stmt->execute([$p,trim($_POST['note']??'')?:null]);
   $msg=count($phones).' numara ret listesine eklendi. Bu numaralara artık hiçbir SMS gönderilmez.';
  }
+ if($action==='consent_grant' || $action==='consent_revoke'){
+  // İzin numara bazında tutulur: numaranın bütün gruplardaki kayıtları güncellenir
+  $phones=phones_from_text($_POST['phones']??'');
+  $status=$action==='consent_grant'?'granted':'unknown';
+  $stmt=$pdo->prepare('UPDATE contacts SET consent_status=? WHERE phone=?');$found=0;
+  foreach($phones as $p){$stmt->execute([$status,$p]);if($stmt->rowCount())$found++;}
+  $missing=count($phones)-$found;
+  $msg=$action==='consent_grant'
+   ? "$found numaranın izni \"verildi\" olarak işaretlendi.".($missing?" $missing numara kişi listesinde yok (önce içe aktarın).":'')
+   : "$found numaranın izni kaldırıldı.";
+ }
  if($action==='optout_remove'){
   $pdo->prepare('DELETE FROM optouts WHERE phone=?')->execute([normalize_phone($_POST['phone']??'')]);
   $msg='Numara ret listesinden çıkarıldı.';
@@ -34,6 +45,7 @@ $totals=$pdo->query('SELECT COUNT(*) c, COUNT(DISTINCT phone) u FROM contacts')-
 $groups=$pdo->query("SELECT COALESCE(group_name,'(grupsuz)') g, COUNT(*) c FROM contacts GROUP BY group_name ORDER BY g")->fetchAll();
 $optouts=$pdo->query('SELECT * FROM optouts ORDER BY created_at DESC LIMIT 200')->fetchAll();
 $optoutCount=(int)$pdo->query('SELECT COUNT(*) FROM optouts')->fetchColumn();
+$grantedCount=(int)$pdo->query("SELECT COUNT(DISTINCT phone) FROM contacts WHERE consent_status='granted'")->fetchColumn();
 ?><!doctype html><html lang="tr"><meta charset="utf-8"><title>Kişiler</title>
 <style>body{font-family:Arial;max-width:900px;margin:35px auto}.box{padding:20px;background:#f5f7fb;border-radius:12px;margin-bottom:16px}textarea{width:100%}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ddd;padding:6px;text-align:left}</style>
 <a href="index.php">← Panel</a><h1>Kişiler</h1>
@@ -49,6 +61,12 @@ Data Hunter'ın <b>Firma CSV</b> ve normal <b>CSV</b> dosyaları doğrudan yükl
 
 <div class="box"><h3>Kayıtlar</h3><p>Toplam <?=$totals['c']?> kayıt, <?=$totals['u']?> farklı numara.</p>
 <table><tr><th>Grup</th><th>Kişi</th></tr><?php foreach($groups as $g):?><tr><td><?=e($g['g'])?></td><td><?=$g['c']?></td></tr><?php endforeach;?></table></div>
+
+<div class="box"><h3>İzinler (<?=$grantedCount?> numara izinli)</h3>
+<p>WhatsApp ve ticari SMS yalnız izni verilmiş numaralara gider. Size numarasını verip mesaj almayı kabul eden kişileri (ör. SMS'inize olumlu dönenler, formu dolduranlar) burada işaretleyin.</p>
+<form method="post"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>">
+<textarea name="phones" rows="4" placeholder="Her satıra bir numara" required></textarea>
+<p><button name="action" value="consent_grant">İzin verildi olarak işaretle</button> <button name="action" value="consent_revoke">İzni kaldır</button></p></form></div>
 
 <div class="box"><h3>Ret listesi (<?=$optoutCount?>)</h3>
 <p>"SMS almak istemiyorum" diyen numaraları buraya ekleyin. Ret listesindeki numaralara <b>bilgilendirme dahil hiçbir</b> SMS gönderilmez; sonraki içe aktarmalarda da bu korunur.</p>

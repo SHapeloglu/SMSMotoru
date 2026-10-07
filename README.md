@@ -52,6 +52,16 @@ Gereken: PHP 8.1+ (cURL, PDO_MySQL, OpenSSL, Zip, SimpleXML, mbstring) ve MySQL/
 - **Ret listesi** (Kişiler sayfası): eklenen numaralara bilgilendirme dahil hiçbir SMS gönderilmez; kuyruktaki mesajlarda da gönderim anında kontrol edilir.
 - Ticari türde yalnız `consent_status=granted` kişiler kuyruğa alınır.
 
+## WhatsApp (Meta Cloud API)
+- **Sağlayıcılar → WhatsApp** bölümünden girilir, istediğiniz zaman değiştirilebilir: Phone Number ID, Access Token, (isteğe bağlı) WABA ID, API sürümü, mesaj başı fiyat.
+  Bilgiler şifreli saklanır; Access Token sayfada hiçbir zaman gösterilmez (boş bırakılırsa kayıtlı olan korunur).
+- Aynı bölümden kendi numaranıza **test mesajı** gönderilebilir (yeni hesaplarda Meta'nın hazır `hello_world` / `en_US` şablonu).
+- Gönderim: **Mesaj Gönder → Kanal: WhatsApp** → Meta'da onaylı şablon adı, dil kodu ve değişkenler (her satır sırayla `{{1}}`, `{{2}}`…; `{AD}` `{FIRMA}` vb. kullanılabilir).
+- **Yalnız izni "verildi" olan kişilere** gönderilir (Meta kuralı: kişi numarasını vermiş ve WhatsApp mesajına onay vermiş olmalı); ret listesi her zaman uygulanır.
+  İzinler **Kişiler → İzinler** bölümünden numara listesiyle işaretlenir/kaldırılır. Değişkeni boş kalan kişi (ör. firma adı yok) atlanır.
+- WhatsApp "otomatik en ucuz" SMS seçimine hiçbir zaman girmez.
+- Teslim/okundu bilgisi ve gelen yanıtlar için Meta webhook'u bu sürümde yok.
+
 ## API güvenliği
 - API bilgileri DB'de AES-256-CBC ile şifrelenir.
 - HTTPS zorunlu tutulmalıdır.

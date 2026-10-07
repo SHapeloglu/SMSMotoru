@@ -89,3 +89,18 @@ function phones_from_text(string $text):array{
  foreach(preg_split('/[\r\n,;]+/',$text) as $raw){$p=normalize_phone($raw);if($p!=='')$out[$p]=true;}
  return array_keys($out);
 }
+
+// --- WhatsApp şablonları ---
+function wa_template_name_ok(string $n):bool{return (bool)preg_match('/^[a-z0-9_]{1,512}$/',$n);}
+
+// Şablon değişkenlerini ({{1}}, {{2}}...) kişiye göre doldurur. $paramLines: her satır bir değişken, ör. "{AD}" veya "{FIRMA}".
+// Dönüş: [json, eksikAlanVarMi]. Meta boş değişkeni reddettiği için boş kalan alan "eksik" sayılır.
+function wa_payload_json(string $template,string $lang,array $paramLines,array $contact):array{
+ $params=[];$missing=false;
+ foreach($paramLines as $line){$v=trim(render_sms($line,$contact));if($v==='')$missing=true;$params[]=$v;}
+ return [json_encode(['template'=>$template,'lang'=>$lang,'params'=>$params],JSON_UNESCAPED_UNICODE),$missing];
+}
+
+function param_lines(string $text):array{
+ return array_values(array_filter(array_map('trim',preg_split('/\r\n|\n|\r/',$text)),fn($l)=>$l!==''));
+}
