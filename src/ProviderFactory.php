@@ -3,12 +3,14 @@ require_once __DIR__.'/Providers/NetgsmProvider.php';
 require_once __DIR__.'/Providers/MutlucellProvider.php';
 require_once __DIR__.'/Providers/VatanSmsProvider.php';
 require_once __DIR__.'/Providers/IletiMerkeziProvider.php';
+require_once __DIR__.'/Providers/WhatsAppProvider.php';
 function provider_factory(string $name,array $credentials):SmsProviderInterface{
  return match(strtolower($name)){
  'netgsm'=>new NetgsmProvider($credentials),
  'mutlucell'=>new MutlucellProvider($credentials),
  'vatansms'=>new VatansmsProvider($credentials),
  'iletimerkezi'=>new IletimerkeziProvider($credentials),
+ 'whatsapp'=>new WhatsAppProvider($credentials),
  default=>throw new InvalidArgumentException('Desteklenmeyen sağlayıcı')
  };
 }

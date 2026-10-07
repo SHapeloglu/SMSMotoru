@@ -31,6 +31,7 @@ while(time()<$deadline){
  }
 
  $optout=$pdo->prepare('SELECT 1 FROM optouts WHERE phone=?');
+ $consent=$pdo->prepare("SELECT 1 FROM contacts WHERE phone=? AND consent_status='granted' LIMIT 1");
  $r=$pdo->prepare("SELECT * FROM message_recipients WHERE message_id=? AND status='queued' ORDER BY id LIMIT 100");$r->execute([$m['id']]);
  foreach($r->fetchAll() as $rec){
   if(time()>=$deadline)break;
@@ -38,6 +39,11 @@ while(time()<$deadline){
   $optout->execute([$rec['phone']]);
   if($optout->fetchColumn()){
    $pdo->prepare("UPDATE message_recipients SET status='optout' WHERE id=?")->execute([$rec['id']]);continue;
+  }
+  // WhatsApp: kuyruğa alındıktan sonra izni geri alınan kişiye gönderilmez
+  if($m['message_type']==='whatsapp'){
+   $consent->execute([$rec['phone']]);
+   if(!$consent->fetchColumn()){$pdo->prepare("UPDATE message_recipients SET status='no_consent' WHERE id=?")->execute([$rec['id']]);continue;}
   }
   $res=$provider->send($rec['phone'],$rec['rendered_message'],$m['sender']?:(string)$providerRow['sender'],['iys'=>$m['message_type']==='commercial'?'Y':'N']);
   $status=$res['success']?'submitted':'failed';
