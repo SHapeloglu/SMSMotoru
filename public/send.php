@@ -33,9 +33,11 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
   // Alıcıları önce süz, sonra say: ret listesi her türde hariç; ticari SMS'te ve WhatsApp'ta yalnız izinliler; aynı numara bir kez
   $needConsent=$channel==='whatsapp' || $type==='commercial';
   $optout=array_flip($pdo->query('SELECT phone FROM optouts')->fetchAll(PDO::FETCH_COLUMN));
-  $recipients=[];$skippedOptout=0;$skippedConsent=0;$skippedMissing=0;$rendered=[];
+  $recipients=[];$skippedOptout=0;$skippedConsent=0;$skippedMissing=0;$skippedLandline=0;$rendered=[];
   foreach($contacts as $c){
    if(isset($optout[$c['phone']])){$skippedOptout++;continue;}
+   // SMS sabit hatta ulaşmaz (boşuna ücret); WhatsApp Business sabit hatta da olabildiği için orada süzülmez
+   if($channel==='sms' && is_tr_landline($c['phone'])){$skippedLandline++;continue;}
    if($needConsent && $c['consent_status']!=='granted'){$skippedConsent++;continue;}
    if(isset($recipients[$c['phone']]))continue;
    if($channel==='whatsapp'){
@@ -47,7 +49,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
   }
   $scheduled=$_POST['scheduled_at']?:null;$sender=$channel==='sms'?trim($_POST['sender']??''):'';
   $skippedInfo=($skippedConsent?" İzni olmayan $skippedConsent kişi atlandı.":'').($skippedOptout?" Ret listesindeki $skippedOptout kişi atlandı.":'')
-   .($skippedMissing?" Şablon değişkeni boş kalan $skippedMissing kişi atlandı.":'');
+   .($skippedMissing?" Şablon değişkeni boş kalan $skippedMissing kişi atlandı.":'').($skippedLandline?" Sabit hat olan $skippedLandline numara atlandı.":'');
   if(!$recipients){
    $result='Gönderilecek kişi yok.'.$skippedInfo;
   }else{
