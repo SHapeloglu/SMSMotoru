@@ -1,8 +1,8 @@
 <?php
 require_once __DIR__.'/Providers/NetgsmProvider.php';
 require_once __DIR__.'/Providers/MutlucellProvider.php';
-require_once __DIR__.'/Providers/VatansmsProvider.php';
-require_once __DIR__.'/Providers/IletimerkeziProvider.php';
+require_once __DIR__.'/Providers/VatanSmsProvider.php';
+require_once __DIR__.'/Providers/IletiMerkeziProvider.php';
 function provider_factory(string $name,array $credentials):SmsProviderInterface{
  return match(strtolower($name)){
  'netgsm'=>new NetgsmProvider($credentials),

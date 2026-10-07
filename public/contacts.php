@@ -3,29 +3,60 @@ require_once __DIR__.'/../src/bootstrap.php';require_login();require_once __DIR_
 $msg='';
 if($_SERVER['REQUEST_METHOD']==='POST'){
  verify_csrf();
- if(isset($_FILES['file'])&&is_uploaded_file($_FILES['file']['tmp_name'])){
+ $action=$_POST['action']??'import';
+ if($action==='import' && isset($_FILES['file'])&&is_uploaded_file($_FILES['file']['tmp_name'])){
   try{
    $ext=strtolower(pathinfo($_FILES['file']['name'],PATHINFO_EXTENSION));
-   $rows=$ext==='xlsx'?xlsx_rows($_FILES['file']['tmp_name']):array_map(fn($r)=>str_getcsv($r),file($_FILES['file']['tmp_name'],FILE_IGNORE_NEW_LINES|FILE_SKIP_EMPTY_LINES));
-   $header=array_map(fn($x)=>mb_strtolower(trim((string)$x),'UTF-8'),$rows[0]??[]);
-   $map=[];foreach($header as $i=>$h)$map[$h]=$i;
-   $count=0;
-   for($i=1;$i<count($rows);$i++){
-    $row=$rows[$i];$phone=normalize_phone((string)($row[$map['telefon']??0]??''));if(!$phone)continue;
-    $first=$row[$map['ad']??-1]??null;$last=$row[$map['soyad']??-1]??null;$group=$row[$map['grup']??-1]??null;
-    $stmt=$pdo->prepare('INSERT INTO contacts(first_name,last_name,phone,group_name) VALUES(?,?,?,?)
-      ON DUPLICATE KEY UPDATE first_name=VALUES(first_name),last_name=VALUES(last_name)');
-    $stmt->execute([$first,$last,$phone,$group]);$count++;
+   $rows=$ext==='xlsx'?xlsx_rows($_FILES['file']['tmp_name']):csv_rows($_FILES['file']['tmp_name']);
+   $res=contacts_from_rows($rows,trim($_POST['group_name']??''));
+   if($res['error']){$msg='Hata: '.$res['error'];}
+   else{
+    $stmt=$pdo->prepare('INSERT INTO contacts(first_name,last_name,phone,group_name,company,source) VALUES(?,?,?,?,?,?)
+      ON DUPLICATE KEY UPDATE first_name=COALESCE(VALUES(first_name),first_name),last_name=COALESCE(VALUES(last_name),last_name),
+      company=COALESCE(VALUES(company),company),source=COALESCE(VALUES(source),source)');
+    foreach($res['contacts'] as $c)$stmt->execute([$c['first_name'],$c['last_name'],$c['phone'],$c['group_name'],$c['company'],$c['source']]);
+    $msg=count($res['contacts']).' kişi içe aktarıldı.'.($res['skipped']?' Geçersiz '.$res['skipped'].' numara atlandı.':'');
    }
-   $msg="$count kişi içe aktarıldı.";
   }catch(Throwable $e){$msg='Hata: '.$e->getMessage();}
  }
+ if($action==='optout'){
+  $phones=phones_from_text($_POST['phones']??'');
+  $stmt=$pdo->prepare('INSERT IGNORE INTO optouts(phone,note) VALUES(?,?)');
+  foreach($phones as $p)$stmt->execute([$p,trim($_POST['note']??'')?:null]);
+  $msg=count($phones).' numara ret listesine eklendi. Bu numaralara artık hiçbir SMS gönderilmez.';
+ }
+ if($action==='optout_remove'){
+  $pdo->prepare('DELETE FROM optouts WHERE phone=?')->execute([normalize_phone($_POST['phone']??'')]);
+  $msg='Numara ret listesinden çıkarıldı.';
+ }
 }
+$totals=$pdo->query('SELECT COUNT(*) c, COUNT(DISTINCT phone) u FROM contacts')->fetch();
+$groups=$pdo->query("SELECT COALESCE(group_name,'(grupsuz)') g, COUNT(*) c FROM contacts GROUP BY group_name ORDER BY g")->fetchAll();
+$optouts=$pdo->query('SELECT * FROM optouts ORDER BY created_at DESC LIMIT 200')->fetchAll();
+$optoutCount=(int)$pdo->query('SELECT COUNT(*) FROM optouts')->fetchColumn();
 ?><!doctype html><html lang="tr"><meta charset="utf-8"><title>Kişiler</title>
-<style>body{font-family:Arial;max-width:900px;margin:35px auto}.box{padding:20px;background:#f5f7fb;border-radius:12px}</style>
+<style>body{font-family:Arial;max-width:900px;margin:35px auto}.box{padding:20px;background:#f5f7fb;border-radius:12px;margin-bottom:16px}textarea{width:100%}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ddd;padding:6px;text-align:left}</style>
 <a href="index.php">← Panel</a><h1>Kişiler</h1>
-<div class="box"><p><b>Desteklenen:</b> .xlsx ve .csv</p><p>Kolonlar: <code>telefon, ad, soyad, grup</code></p>
-<?php if($msg):?><p><?=e($msg)?></p><?php endif;?>
-<form method="post" enctype="multipart/form-data"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>">
-<input type="file" name="file" accept=".xlsx,.csv" required><button>İçe Aktar</button></form></div>
+<?php if($msg):?><div class="box"><b><?=e($msg)?></b></div><?php endif;?>
+<div class="box"><h3>İçe aktar</h3>
+<p><b>Desteklenen:</b> .xlsx ve .csv (ayraç <code>;</code> veya <code>,</code> otomatik bulunur)</p>
+<p>Kolonlar: <code>telefon, ad, soyad, grup, firma</code> — ilk satır başlık olmalı.<br>
+Data Hunter'ın <b>Firma CSV</b> ve normal <b>CSV</b> dosyaları doğrudan yüklenebilir (firma adı ve kaynak sayfa da alınır).</p>
+<form method="post" enctype="multipart/form-data"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="import">
+<p><input type="file" name="file" accept=".xlsx,.csv" required></p>
+<p><input name="group_name" placeholder="Grup adı (dosyada grup sütunu yoksa)" style="width:60%"></p>
+<button>İçe Aktar</button></form></div>
+
+<div class="box"><h3>Kayıtlar</h3><p>Toplam <?=$totals['c']?> kayıt, <?=$totals['u']?> farklı numara.</p>
+<table><tr><th>Grup</th><th>Kişi</th></tr><?php foreach($groups as $g):?><tr><td><?=e($g['g'])?></td><td><?=$g['c']?></td></tr><?php endforeach;?></table></div>
+
+<div class="box"><h3>Ret listesi (<?=$optoutCount?>)</h3>
+<p>"SMS almak istemiyorum" diyen numaraları buraya ekleyin. Ret listesindeki numaralara <b>bilgilendirme dahil hiçbir</b> SMS gönderilmez; sonraki içe aktarmalarda da bu korunur.</p>
+<form method="post"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="optout">
+<textarea name="phones" rows="4" placeholder="Her satıra bir numara (0532..., +90532..., 532...)" required></textarea>
+<p><input name="note" placeholder="Not (ör. SMS ile RET yazdı, 07.10.2026)" style="width:60%"> <button>Ret listesine ekle</button></p></form>
+<?php if($optouts):?><table><tr><th>Numara</th><th>Not</th><th>Tarih</th><th></th></tr>
+<?php foreach($optouts as $o):?><tr><td><?=e($o['phone'])?></td><td><?=e($o['note'])?></td><td><?=e($o['created_at'])?></td>
+<td><form method="post" style="margin:0" onsubmit="return confirm('Bu numara ret listesinden çıkarılsın mı?')"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="optout_remove"><input type="hidden" name="phone" value="<?=e($o['phone'])?>"><button>Çıkar</button></form></td></tr><?php endforeach;?></table><?php endif;?>
+</div>
 </html>
