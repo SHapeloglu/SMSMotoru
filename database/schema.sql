@@ -1,5 +1,5 @@
-CREATE DATABASE IF NOT EXISTS sms_panel CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE sms_panel;
+-- Panelde oluşturduğunuz veritabanını phpMyAdmin'de seçip bu dosyayı içe aktarın.
+-- (Paylaşımlı hostingde CREATE DATABASE yetkisi olmadığı için burada veritabanı oluşturulmaz.)
 
 CREATE TABLE IF NOT EXISTS users (
  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -27,10 +27,19 @@ CREATE TABLE IF NOT EXISTS contacts (
  last_name VARCHAR(100) NULL,
  phone VARCHAR(30) NOT NULL,
  group_name VARCHAR(100) NULL,
+ company VARCHAR(255) NULL,
+ source VARCHAR(500) NULL,
  consent_status ENUM('unknown','granted','denied') NOT NULL DEFAULT 'unknown',
  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
  UNIQUE KEY uq_phone_group(phone,group_name),
  INDEX idx_phone(phone), INDEX idx_group(group_name)
+);
+
+-- Ret listesi: buradaki numaralara hiçbir türde (bilgilendirme dahil) SMS gönderilmez
+CREATE TABLE IF NOT EXISTS optouts (
+ phone VARCHAR(30) NOT NULL PRIMARY KEY,
+ note VARCHAR(255) NULL,
+ created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS messages (

@@ -5,7 +5,7 @@ class IletimerkeziProvider extends GenericHttpProvider {
   $url=$this->credentials['send_endpoint']??'';
   if(!$url)return ['success'=>false,'provider_id'=>null,'raw'=>'','error'=>'İletiMerkezi send_endpoint ayarlanmamış.'];
   $r=$this->request($url,['key'=>$this->credentials['key']??'','hash'=>$this->credentials['hash']??'','sender'=>$sender,'message'=>$message,'receivers'=>$phone,'iys'=>$options['iys']??'Y']);
-  return ['success'=>$r['ok'],'provider_id'=>null,'raw'=>$r['body'],'error'=>$r['error'],'http_code'=>$r['code']];
+  return $this->result($r);
 
  }
  public function balance():?float {

@@ -4,7 +4,7 @@ class NetgsmProvider extends GenericHttpProvider {
  public function send(string $phone,string $message,string $sender,array $options=[]):array {
   $url=$this->credentials['send_endpoint']??'https://api.netgsm.com.tr/sms/send/xml';
   $r=$this->request($url,['usercode'=>$this->credentials['usercode']??'','password'=>$this->credentials['password']??'','msgheader'=>$sender,'gsmno'=>$phone,'message'=>$message]);
-  return ['success'=>$r['ok'],'provider_id'=>null,'raw'=>$r['body'],'error'=>$r['error'],'http_code'=>$r['code']];
+  return $this->result($r,'/^\s*0[0-2](\s|$)/');
 
  }
  public function balance():?float {

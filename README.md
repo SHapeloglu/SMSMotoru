@@ -18,14 +18,39 @@ Tek panelden Netgsm, Mutlucell, VatanSMS ve İletiMerkezi gibi sağlayıcıları
 - Sağlayıcı HTTP logları
 - API credential'larının şifreli saklanması
 
-## Kurulum
-1. PHP 8.1+ (cURL, PDO_MySQL, OpenSSL, ZipArchive, SimpleXML) ve MySQL gerekir.
-2. `config/config.php.example` -> `config/config.php`
-3. `database/schema.sql` MySQL'e aktarılır.
-4. Web document root `public/` klasörüne yönlendirilir.
-5. `/install.php` ile ilk yönetici oluşturulur ve install.php silinir.
-6. Sağlayıcılar sayfasında API bilgileri ve referans SMS fiyatları girilir.
-7. Kuyruğu göndermek için sunucuda `php src/worker.php` çalıştırılabilir; cron/systemd/supervisor ile sürekli çalıştırılması önerilir.
+## Kurulum (DirectAdmin / paylaşımlı hosting)
+
+Gereken: PHP 8.1+ (cURL, PDO_MySQL, OpenSSL, Zip, SimpleXML, mbstring) ve MySQL/MariaDB.
+
+1. **Dosyaları yerleştirin.** Alan adının klasöründe (`/domains/ALANADI/`) şu düzen olmalı:
+   ```
+   /domains/ALANADI/
+   ├── config/        ← config.php burada (internetten erişilemez)
+   ├── src/
+   ├── database/
+   └── public_html/   ← deponun public/ klasörünün İÇİNDEKİLER + kökteki .htaccess
+   ```
+   `public_html/public/` diye alt klasör olmamalı; `index.php` doğrudan `public_html` içinde durmalı.
+2. **Veritabanı.** DirectAdmin → *MySQL Management* → yeni veritabanı + kullanıcı oluşturun (adlar `kullanici_sms` gibi önekli olur).
+   *phpMyAdmin*'de bu veritabanını seçip `database/schema.sql` dosyasını **İçe Aktar** ile yükleyin.
+3. **Ayar dosyası.** `config/config.php.example` dosyasını `config/config.php` olarak kopyalayın; veritabanı adı/kullanıcı/şifreyi
+   ve `encryption_key` için uzun rastgele bir metin girin. (Bu anahtar sonradan değişirse kayıtlı sağlayıcı şifreleri çözülemez.)
+4. **Yönetici.** `https://ALANADI/install.php` adresinden ilk kullanıcıyı oluşturun, ardından `public_html/install.php` dosyasını **silin**.
+5. **Sağlayıcı.** *Sağlayıcılar* sayfasında API bilgilerini JSON olarak girin (ör. Netgsm: `{"usercode":"…","password":"…"}`).
+   Sağlayıcı hatayı HTTP 200 ile dönüyorsa `"success_regex"` ile başarılı yanıt kalıbı verilebilir (Netgsm için hazır: `00/01/02` ile başlayan yanıt).
+   Canlıya geçmeden önce **tek numaraya** test gönderin.
+6. **Gönderim (cron).** DirectAdmin → *Cron Jobs* → her dakika (`* * * * *`):
+   ```
+   /usr/local/bin/php /home/KULLANICI/domains/ALANADI/src/worker.php --cron >/dev/null 2>&1
+   ```
+   `--cron` ile betik ~50 sn çalışıp çıkar (paylaşımlı hostingde uzun süren işlemler kapatılır). VPS'te `--cron` olmadan sürekli çalıştırılabilir.
+
+## Kişiler ve ret listesi
+- İçe aktarma: `.xlsx` / `.csv`, ayraç (`;` `,`) otomatik; başlıklar `telefon, ad, soyad, grup, firma`.
+  Data Hunter'ın **Firma CSV** ve normal **CSV** dosyaları doğrudan yüklenebilir (firma adı ve kaynak sayfa saklanır). Geçersiz numaralar atlanır ve sayısı gösterilir.
+- Mesajda `{AD}`, `{SOYAD}`, `{FIRMA}`, `{TELEFON}` kullanılabilir.
+- **Ret listesi** (Kişiler sayfası): eklenen numaralara bilgilendirme dahil hiçbir SMS gönderilmez; kuyruktaki mesajlarda da gönderim anında kontrol edilir.
+- Ticari türde yalnız `consent_status=granted` kişiler kuyruğa alınır.
 
 ## API güvenliği
 - API bilgileri DB'de AES-256-CBC ile şifrelenir.

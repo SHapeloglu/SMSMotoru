@@ -5,7 +5,7 @@ class MutlucellProvider extends GenericHttpProvider {
   $url=$this->credentials['send_endpoint']??'';
   if(!$url)return ['success'=>false,'provider_id'=>null,'raw'=>'','error'=>'Mutlucell send_endpoint ayarlanmamış.'];
   $r=$this->request($url,['username'=>$this->credentials['username']??'','password'=>$this->credentials['password']??'','originator'=>$sender,'text'=>$message,'numbers'=>$phone]);
-  return ['success'=>$r['ok'],'provider_id'=>null,'raw'=>$r['body'],'error'=>$r['error'],'http_code'=>$r['code']];
+  return $this->result($r);
 
  }
  public function balance():?float {
